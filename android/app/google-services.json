@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "265094165055",
+    "project_id": "prism-72ad1",
+    "storage_bucket": "prism-72ad1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:265094165055:android:56ec933f704c58ac94fe8a",
+        "android_client_info": {
+          "package_name": "com.example.prism"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "265094165055-bcd3in8rt11lfufvgf3r91kaidi4jtp7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.prism",
+            "certificate_hash": "e1593faaddb935620d236a779c9a182851fe6bbb"
+          }
+        },
+        {
+          "client_id": "265094165055-ui75o0hhlbo7d39d5gh42k1q4b79h8c6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD7JsFOQYXf8l1-rOSvZntP_zqmMB2wCfM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "265094165055-ui75o0hhlbo7d39d5gh42k1q4b79h8c6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
