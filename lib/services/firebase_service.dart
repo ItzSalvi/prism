@@ -33,6 +33,41 @@ class FirebaseService {
     }
   }
 
+  // Store extended user profile data
+  Future<void> storeExtendedUserProfile({
+    required String userId,
+    required String firstName,
+    required String middleName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required DateTime birthDate,
+    required int age,
+    required String emergencyContact,
+    required String emergencyPhone,
+    String? physician,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(userId).set({
+        'firstName': firstName,
+        'middleName': middleName,
+        'lastName': lastName,
+        'fullName': '$firstName ${middleName.isNotEmpty ? '$middleName ' : ''}$lastName',
+        'email': email,
+        'phoneNumber': phoneNumber,
+        'birthDate': birthDate,
+        'age': age,
+        'emergencyContact': emergencyContact,
+        'emergencyPhone': emergencyPhone,
+        'physician': physician,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to store extended user profile: $e');
+    }
+  }
+
   // Store blood pressure measurement
   Future<String> storeBloodPressureMeasurement({
     required String userId,
@@ -75,18 +110,35 @@ class FirebaseService {
   // Get recent measurements
   Future<List<Map<String, dynamic>>> getRecentMeasurements(String userId, {int limit = 10}) async {
     try {
+      // First get all measurements for the user, then sort in memory to avoid index requirement
       QuerySnapshot snapshot = await _firestore
           .collection('measurements')
           .where('userId', isEqualTo: userId)
-          .orderBy('timestamp', descending: true)
-          .limit(limit)
           .get();
 
-      return snapshot.docs.map((doc) {
+      List<Map<String, dynamic>> measurements = snapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
         return data;
       }).toList();
+
+      // Sort by timestamp in descending order (newest first)
+      measurements.sort((a, b) {
+        DateTime timestampA = a['timestamp'] is DateTime 
+            ? a['timestamp'] 
+            : DateTime.fromMillisecondsSinceEpoch(a['timestamp'].millisecondsSinceEpoch);
+        DateTime timestampB = b['timestamp'] is DateTime 
+            ? b['timestamp'] 
+            : DateTime.fromMillisecondsSinceEpoch(b['timestamp'].millisecondsSinceEpoch);
+        return timestampB.compareTo(timestampA);
+      });
+
+      // Apply limit
+      if (measurements.length > limit) {
+        measurements = measurements.take(limit).toList();
+      }
+
+      return measurements;
     } catch (e) {
       throw Exception('Failed to get recent measurements: $e');
     }
@@ -97,19 +149,40 @@ class FirebaseService {
     try {
       DateTime cutoffDate = DateTime.now().subtract(Duration(days: days));
       
+      // Get all measurements for the user, then filter and sort in memory
       QuerySnapshot snapshot = await _firestore
           .collection('measurements')
           .where('userId', isEqualTo: userId)
-          .where('isAbnormal', isEqualTo: true)
-          .where('timestamp', isGreaterThan: cutoffDate)
-          .orderBy('timestamp', descending: true)
           .get();
 
-      return snapshot.docs.map((doc) {
+      List<Map<String, dynamic>> allMeasurements = snapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
         return data;
       }).toList();
+
+      // Filter for abnormal measurements within the date range
+      List<Map<String, dynamic>> abnormalMeasurements = allMeasurements.where((measurement) {
+        bool isAbnormal = measurement['isAbnormal'] == true;
+        DateTime timestamp = measurement['timestamp'] is DateTime 
+            ? measurement['timestamp'] 
+            : DateTime.fromMillisecondsSinceEpoch(measurement['timestamp'].millisecondsSinceEpoch);
+        bool withinDateRange = timestamp.isAfter(cutoffDate);
+        return isAbnormal && withinDateRange;
+      }).toList();
+
+      // Sort by timestamp in descending order (newest first)
+      abnormalMeasurements.sort((a, b) {
+        DateTime timestampA = a['timestamp'] is DateTime 
+            ? a['timestamp'] 
+            : DateTime.fromMillisecondsSinceEpoch(a['timestamp'].millisecondsSinceEpoch);
+        DateTime timestampB = b['timestamp'] is DateTime 
+            ? b['timestamp'] 
+            : DateTime.fromMillisecondsSinceEpoch(b['timestamp'].millisecondsSinceEpoch);
+        return timestampB.compareTo(timestampA);
+      });
+
+      return abnormalMeasurements;
     } catch (e) {
       throw Exception('Failed to get abnormal measurements: $e');
     }
@@ -138,6 +211,7 @@ class FirebaseService {
   // Get user ID
   String? get userId => _auth.currentUser?.uid;
 }
+
 
 
 

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/firebase_service.dart';
+import '../providers/auth_provider.dart';
 
 class MeasurementScreen extends StatefulWidget {
   const MeasurementScreen({super.key});
@@ -10,6 +13,7 @@ class MeasurementScreen extends StatefulWidget {
 class _MeasurementScreenState extends State<MeasurementScreen> with SingleTickerProviderStateMixin {
   bool _isScanning = false;
   bool _hasData = false;
+  bool _isSaving = false;
   
   // Mock data - replace with actual MAX30102 data
   int _systolic = 0;
@@ -17,6 +21,8 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
   int _heartRate = 0;
   double _spo2 = 0.0;
   String _status = "Ready to scan";
+  
+  final FirebaseService _firebaseService = FirebaseService();
 
   late AnimationController _animationController;
   late Animation<double> _pulseAnimation;
@@ -52,19 +58,29 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
     
     _animationController.repeat(reverse: true);
     
-    // Simulate data reception after 3 seconds
+    // Simulate data reception after 3 seconds with realistic variations
     Future.delayed(Duration(seconds: 3), () {
       if (mounted) {
+        // Generate realistic blood pressure data with some variation
+        final random = DateTime.now().millisecondsSinceEpoch % 100;
+        final baseSystolic = 110 + (random % 20); // 110-130 range
+        final baseDiastolic = 70 + (random % 15); // 70-85 range
+        final baseHeartRate = 65 + (random % 20); // 65-85 range
+        final baseSpO2 = 96.0 + (random % 4); // 96-100 range
+        
         setState(() {
           _hasData = true;
           _isScanning = false;
           _status = "Scan complete";
-          _systolic = 128;
-          _diastolic = 82;
-          _heartRate = 72;
-          _spo2 = 98.5;
+          _systolic = baseSystolic;
+          _diastolic = baseDiastolic;
+          _heartRate = baseHeartRate;
+          _spo2 = baseSpO2;
         });
         _animationController.stop();
+        
+        // Automatically save the measurement to database
+        _saveMeasurement();
       }
     });
   }
@@ -81,6 +97,7 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
     setState(() {
       _isScanning = false;
       _hasData = false;
+      _isSaving = false;
       _status = "Ready to scan";
       _systolic = 0;
       _diastolic = 0;
@@ -88,6 +105,66 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
       _spo2 = 0.0;
     });
     _animationController.stop();
+  }
+
+  Future<void> _saveMeasurement() async {
+    if (_systolic == 0 || _diastolic == 0) return;
+
+    setState(() {
+      _isSaving = true;
+      _status = "Saving measurement...";
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.user?.uid;
+      
+      if (userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User not authenticated')),
+        );
+        return;
+      }
+
+      // Determine if blood pressure is abnormal
+      bool isAbnormal = _systolic > 120 || _diastolic > 80;
+
+      // Save to Firebase
+      await _firebaseService.storeBloodPressureMeasurement(
+        userId: userId,
+        systolic: _systolic,
+        diastolic: _diastolic,
+        heartRate: _heartRate,
+        spo2: _spo2,
+        timestamp: DateTime.now(),
+        isAbnormal: isAbnormal,
+      );
+
+      setState(() {
+        _isSaving = false;
+        _status = "Measurement saved successfully!";
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Measurement saved successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+    } catch (e) {
+      setState(() {
+        _isSaving = false;
+        _status = "Failed to save measurement";
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save measurement: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -382,7 +459,7 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
       ),
       child: Column(
         children: [
-          if (!_hasData) ...[
+          if (!_hasData && !_isSaving) ...[
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
@@ -431,6 +508,37 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
                 ),
               ),
             ),
+          ] else if (_isSaving) ...[
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: 18),
+              decoration: BoxDecoration(
+                color: Color(0xFF3B82F6),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Saving measurement...',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ] else ...[
             Row(
               children: [
@@ -445,11 +553,14 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
                 SizedBox(width: 12),
                 Expanded(
                   child: _buildActionButton(
-                    'Save Result',
-                    Icons.save_rounded,
+                    'View Results',
+                    Icons.visibility_rounded,
                     Color(0xFF10B981),
                     () {
-                      // Save functionality would go here
+                      // Navigate to history or show detailed results
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Measurement saved to database!')),
+                      );
                     },
                   ),
                 ),

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -9,16 +10,38 @@ class AuthProvider with ChangeNotifier {
   User? _user;
   bool _isLoading = false;
   String? _error;
+  bool _profileComplete = false;
 
   User? get user => _user;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get profileComplete => _profileComplete;
 
   AuthProvider() {
-    _auth.authStateChanges().listen((User? user) {
+    _auth.authStateChanges().listen((User? user) async {
       _user = user;
+      if (user != null) {
+        await _checkProfileComplete();
+      } else {
+        _profileComplete = false;
+      }
       notifyListeners();
     });
+  }
+
+  Future<void> _checkProfileComplete() async {
+    if (_user == null) return;
+    
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user!.uid)
+          .get();
+      
+      _profileComplete = doc.exists && doc.data() != null && doc.data()!['firstName'] != null;
+    } catch (e) {
+      _profileComplete = false;
+    }
   }
 
   Future<void> signInWithEmailAndPassword(String email, String password) async {
@@ -103,5 +126,22 @@ class AuthProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  Future<void> markProfileComplete() async {
+    _profileComplete = true;
+    notifyListeners();
+  }
+
+  Future<void> signOutAndReturnToLogin() async {
+    try {
+      await _auth.signOut();
+      await _googleSignIn.signOut();
+      _profileComplete = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Error signing out';
+      notifyListeners();
+    }
   }
 }

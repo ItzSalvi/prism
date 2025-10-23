@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'registration_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -348,7 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ],
                                 ),
                                 child: ElevatedButton(
-                                  onPressed: () {
+                                  onPressed: () async {
                                     if (_formKey.currentState!.validate()) {
                                       if (_isLogin) {
                                         authProvider.signInWithEmailAndPassword(
@@ -356,10 +357,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                           _passwordController.text.trim(),
                                         );
                                       } else {
-                                        authProvider.signUpWithEmailAndPassword(
-                                          _emailController.text.trim(),
-                                          _passwordController.text.trim(),
-                                          _nameController.text.trim(),
+                                        // For new users, navigate directly to registration form
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) => RegistrationScreen(
+                                              isGoogleSignIn: false,
+                                              googleEmail: _emailController.text.trim(),
+                                              googleName: _nameController.text.trim(),
+                                              password: _passwordController.text.trim(),
+                                            ),
+                                          ),
                                         );
                                       }
                                     }

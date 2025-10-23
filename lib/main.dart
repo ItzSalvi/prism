@@ -3,12 +3,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/login_screen.dart';
+import 'screens/registration_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/measurement_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/insights_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/device_scan_screen.dart';
 import 'widgets/loading_spinner.dart';
 
 void main() async {
@@ -113,6 +113,15 @@ class AuthWrapper extends StatelessWidget {
       return LoginScreen();
     }
     
+    // Check if user needs to complete profile
+    if (!authProvider.profileComplete) {
+      return RegistrationScreen(
+        isGoogleSignIn: authProvider.user!.providerData.any((provider) => provider.providerId == 'google.com'),
+        googleEmail: authProvider.user!.email,
+        googleName: authProvider.user!.displayName,
+      );
+    }
+    
     return MainNavigation();
   }
 }
@@ -130,7 +139,6 @@ class _MainNavigationState extends State<MainNavigation> {
   final List<Widget> _screens = [
     DashboardScreen(),
     MeasurementScreen(),
-    DeviceScanScreen(),
     HistoryScreen(),
     InsightsScreen(),
     ProfileScreen(),
@@ -159,10 +167,9 @@ class _MainNavigationState extends State<MainNavigation> {
               children: [
                 _buildNavItem(Icons.dashboard_outlined, Icons.dashboard, 'Dashboard', 0),
                 _buildNavItem(Icons.favorite_outline, Icons.favorite, 'Measure', 1),
-                _buildNavItem(Icons.bluetooth_outlined, Icons.bluetooth, 'Device', 2),
-                _buildNavItem(Icons.history_outlined, Icons.history, 'History', 3),
-                _buildNavItem(Icons.insights_outlined, Icons.insights, 'Insights', 4),
-                _buildNavItem(Icons.person_outline, Icons.person, 'Profile', 5),
+                _buildNavItem(Icons.history_outlined, Icons.history, 'History', 2),
+                _buildNavItem(Icons.insights_outlined, Icons.insights, 'Insights', 3),
+                _buildNavItem(Icons.person_outline, Icons.person, 'Profile', 4),
               ],
             ),
           ),
