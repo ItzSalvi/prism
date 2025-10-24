@@ -210,6 +210,82 @@ class FirebaseService {
 
   // Get user ID
   String? get userId => _auth.currentUser?.uid;
+
+  // Update user profile
+  Future<void> updateUserProfile({
+    required String userId,
+    String? firstName,
+    String? middleName,
+    String? lastName,
+    String? phoneNumber,
+    DateTime? birthDate,
+    int? age,
+  }) async {
+    try {
+      Map<String, dynamic> updateData = {
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (firstName != null) updateData['firstName'] = firstName;
+      if (middleName != null) updateData['middleName'] = middleName;
+      if (lastName != null) updateData['lastName'] = lastName;
+      if (phoneNumber != null) updateData['phoneNumber'] = phoneNumber;
+      if (birthDate != null) updateData['birthDate'] = birthDate;
+      if (age != null) updateData['age'] = age;
+
+      // Update full name if first or last name changed
+      if (firstName != null || lastName != null) {
+        String fullName = '';
+        if (firstName != null) fullName += firstName;
+        if (middleName != null && middleName.isNotEmpty) fullName += ' $middleName';
+        if (lastName != null) fullName += ' $lastName';
+        updateData['fullName'] = fullName.trim();
+      }
+
+      await _firestore.collection('users').doc(userId).update(updateData);
+    } catch (e) {
+      throw Exception('Failed to update user profile: $e');
+    }
+  }
+
+
+  // Update physician
+  Future<void> updatePhysician({
+    required String userId,
+    String? physician,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'physician': physician,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update physician: $e');
+    }
+  }
+
+  // Delete user account and all associated data
+  Future<void> deleteUserAccount(String userId) async {
+    try {
+      // Delete user measurements
+      QuerySnapshot measurements = await _firestore
+          .collection('measurements')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      for (DocumentSnapshot doc in measurements.docs) {
+        await doc.reference.delete();
+      }
+
+      // Delete user profile
+      await _firestore.collection('users').doc(userId).delete();
+
+      // Delete the Firebase Auth user
+      await _auth.currentUser?.delete();
+    } catch (e) {
+      throw Exception('Failed to delete user account: $e');
+    }
+  }
 }
 
 

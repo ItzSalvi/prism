@@ -94,7 +94,11 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
 
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return;
+      if (googleUser == null) {
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
@@ -102,10 +106,22 @@ class AuthProvider with ChangeNotifier {
         idToken: googleAuth.idToken,
       );
 
-      await _auth.signInWithCredential(credential);
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      
+      // Check if this is a new user and handle accordingly
+      if (userCredential.additionalUserInfo?.isNewUser == true) {
+        // New user - they'll be redirected to registration screen
+        print('AuthProvider: New Google user signed in');
+      } else {
+        // Existing user - check if profile is complete
+        print('AuthProvider: Existing Google user signed in');
+        await _checkProfileComplete();
+      }
     } on FirebaseAuthException catch (e) {
+      print('AuthProvider: Firebase auth error: ${e.message}');
       _error = e.message;
     } catch (e) {
+      print('AuthProvider: General error during Google sign in: $e');
       _error = 'An error occurred during Google sign in';
     } finally {
       _isLoading = false;
@@ -129,8 +145,10 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> markProfileComplete() async {
+    print('AuthProvider: Marking profile as complete');
     _profileComplete = true;
     notifyListeners();
+    print('AuthProvider: Profile completion status updated, notifying listeners');
   }
 
   Future<void> signOutAndReturnToLogin() async {

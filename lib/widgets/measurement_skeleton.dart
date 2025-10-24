@@ -57,47 +57,77 @@ class MeasurementSkeleton extends StatelessWidget {
   Widget _buildManualInputSkeleton() {
     return SkeletonLoader(
       isLoading: true,
-      child: Card(
-        elevation: 2,
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: SkeletonCard(
+        hasHeader: true,
+        children: [
+          // Blood pressure inputs
+          Row(
             children: [
-              SkeletonBox(width: 120, height: 18),
-              SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SkeletonBox(width: 80, height: 14),
-                        SizedBox(height: 8),
-                        SkeletonBox(width: double.infinity, height: 40),
-                      ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonText(width: 80, height: 14),
+                    SizedBox(height: 8),
+                    Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Color(0xFFE5E7EB)),
+                      ),
+                      child: Center(
+                        child: SkeletonText(width: 60, height: 18),
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SkeletonBox(width: 80, height: 14),
-                        SizedBox(height: 8),
-                        SkeletonBox(width: double.infinity, height: 40),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              SizedBox(height: 16),
-              SkeletonBox(width: 100, height: 14),
-              SizedBox(height: 8),
-              SkeletonBox(width: double.infinity, height: 40),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonText(width: 80, height: 14),
+                    SizedBox(height: 8),
+                    Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Color(0xFFE5E7EB)),
+                      ),
+                      child: Center(
+                        child: SkeletonText(width: 60, height: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
+          SizedBox(height: 20),
+          
+          // Heart rate input
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SkeletonText(width: 100, height: 14),
+              SizedBox(height: 8),
+              Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Color(0xFFE5E7EB)),
+                ),
+                child: Center(
+                  child: SkeletonText(width: 60, height: 18),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -143,7 +173,7 @@ class MeasurementSkeleton extends StatelessWidget {
   Widget _buildSaveButtonSkeleton() {
     return SkeletonLoader(
       isLoading: true,
-      child: SkeletonBox(
+      child: SkeletonButton(
         width: double.infinity,
         height: 50,
         borderRadius: BorderRadius.circular(25),

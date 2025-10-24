@@ -34,25 +34,52 @@ class DashboardSkeleton extends StatelessWidget {
   Widget _buildWelcomeCardSkeleton() {
     return SkeletonLoader(
       isLoading: true,
-      child: Card(
-        elevation: 2,
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Row(
-            children: [
-              SkeletonCircle(radius: 30),
-              SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SkeletonBox(width: 200, height: 20),
-                    SizedBox(height: 8),
-                    SkeletonBox(width: 250, height: 16),
-                  ],
-                ),
-              ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFEF4444),
+              Color(0xFFDC2626),
+              Color(0xFF991B1B),
             ],
+            stops: [0.0, 0.6, 1.0],
+          ),
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(30),
+            bottomRight: Radius.circular(30),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0xFFEF4444).withOpacity(0.4),
+              blurRadius: 20,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              children: [
+                // PRISM Logo skeleton
+                SkeletonBox(width: 120, height: 36, borderRadius: BorderRadius.circular(4)),
+                SizedBox(height: 20),
+                
+                // Profile circle skeleton
+                SkeletonAvatar(size: 100, hasIcon: true),
+                SizedBox(height: 16),
+                
+                // Greeting text skeleton
+                SkeletonText(width: 150, height: 16),
+                SizedBox(height: 8),
+                
+                // User name skeleton
+                SkeletonText(width: 200, height: 20),
+                SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
@@ -164,29 +191,35 @@ class DashboardSkeleton extends StatelessWidget {
   Widget _buildRiskAssessmentSkeleton() {
     return SkeletonLoader(
       isLoading: true,
-      child: Card(
-        elevation: 2,
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: SkeletonCard(
+        hasHeader: true,
+        hasFooter: true,
+        children: [
+          // Risk level badge
+          SkeletonBox(
+            width: double.infinity,
+            height: 40,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          SizedBox(height: 16),
+          
+          // Progress bar
+          SkeletonProgressBar(progress: 0.4),
+          SizedBox(height: 12),
+          
+          // Risk percentage and level
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              SkeletonBox(width: 200, height: 20),
-              SizedBox(height: 12),
-              SkeletonBox(
-                width: double.infinity,
-                height: 8,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              SizedBox(height: 8),
-              SkeletonBox(width: 150, height: 16),
-              SizedBox(height: 8),
-              SkeletonBox(width: double.infinity, height: 12),
-              SizedBox(height: 4),
-              SkeletonBox(width: 200, height: 12),
+              SkeletonText(width: 100, height: 14),
+              SkeletonText(width: 60, height: 14),
             ],
           ),
-        ),
+          SizedBox(height: 16),
+          
+          // Risk description
+          SkeletonText(width: double.infinity, height: 14, lines: 2),
+        ],
       ),
     );
   }

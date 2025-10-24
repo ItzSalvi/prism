@@ -70,44 +70,23 @@ class InsightsSkeleton extends StatelessWidget {
   Widget _buildTrendChartSkeleton() {
     return SkeletonLoader(
       isLoading: true,
-      child: Card(
-        elevation: 2,
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: SkeletonCard(
+        hasHeader: true,
+        children: [
+          SkeletonChart(
+            height: 200,
+            dataPoints: 7,
+          ),
+          SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              SkeletonBox(width: 180, height: 18),
-              SizedBox(height: 16),
-              Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SkeletonBox(width: 200, height: 16),
-                      SizedBox(height: 8),
-                      SkeletonBox(width: 150, height: 14),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildTrendIndicatorSkeleton(),
-                  _buildTrendIndicatorSkeleton(),
-                  _buildTrendIndicatorSkeleton(),
-                ],
-              ),
+              _buildTrendIndicatorSkeleton(),
+              _buildTrendIndicatorSkeleton(),
+              _buildTrendIndicatorSkeleton(),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

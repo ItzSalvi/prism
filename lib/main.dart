@@ -92,6 +92,9 @@ class PRISMApp extends StatelessWidget {
           ),
         ),
         home: AuthWrapper(),
+        routes: {
+          '/history': (context) => HistoryScreen(),
+        },
         debugShowCheckedModeBanner: false,
       ),
     );
@@ -105,16 +108,21 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: true);
     
+    print('AuthWrapper: isLoading=${authProvider.isLoading}, user=${authProvider.user?.uid}, profileComplete=${authProvider.profileComplete}');
+    
     if (authProvider.isLoading) {
+      print('AuthWrapper: Showing loading spinner');
       return LoadingSpinner();
     }
     
     if (authProvider.user == null) {
+      print('AuthWrapper: No user, showing login screen');
       return LoginScreen();
     }
     
     // Check if user needs to complete profile
     if (!authProvider.profileComplete) {
+      print('AuthWrapper: Profile incomplete, showing registration screen');
       return RegistrationScreen(
         isGoogleSignIn: authProvider.user!.providerData.any((provider) => provider.providerId == 'google.com'),
         googleEmail: authProvider.user!.email,
@@ -122,6 +130,7 @@ class AuthWrapper extends StatelessWidget {
       );
     }
     
+    print('AuthWrapper: Profile complete, showing main navigation');
     return MainNavigation();
   }
 }
@@ -185,7 +194,7 @@ class _MainNavigationState extends State<MainNavigation> {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Color(0xFF3B82F6).withOpacity(0.1) : Colors.transparent,
+          color: isSelected ? Color(0xFFDC2626).withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
@@ -193,14 +202,14 @@ class _MainNavigationState extends State<MainNavigation> {
           children: [
             Icon(
               isSelected ? filledIcon : outlineIcon,
-              color: isSelected ? Color(0xFF3B82F6) : Color(0xFF64748B),
+              color: isSelected ? Color(0xFFDC2626) : Color(0xFF64748B),
               size: 20,
             ),
             SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Color(0xFF3B82F6) : Color(0xFF64748B),
+                color: isSelected ? Color(0xFFDC2626) : Color(0xFF64748B),
                 fontSize: 9,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),

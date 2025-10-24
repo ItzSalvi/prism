@@ -161,18 +161,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
         return false;
       }
     } else {
-      // For sign-up users, check password and use standard form validation
-      if (_passwordController.text.trim().isEmpty) {
-        setState(() {
-          _error = 'Password is required';
-        });
-        return false;
-      }
-      if (_passwordController.text.trim().length < 6) {
-        setState(() {
-          _error = 'Password must be at least 6 characters';
-        });
-        return false;
+      // For sign-up users, check password only if it's required
+      if (widget.password == null) {
+        if (_passwordController.text.trim().isEmpty) {
+          setState(() {
+            _error = 'Password is required';
+          });
+          return false;
+        }
+        if (_passwordController.text.trim().length < 6) {
+          setState(() {
+            _error = 'Password must be at least 6 characters';
+          });
+          return false;
+        }
       }
       if (!_formKey.currentState!.validate()) return false;
     }
@@ -210,8 +212,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
   }
 
   Future<void> _submitRegistration() async {
-    if (!_validateForm()) return;
+    print('Starting registration validation...');
+    if (!_validateForm()) {
+      print('Form validation failed');
+      return;
+    }
     
+    print('Form validation passed, starting registration...');
     setState(() {
       _isLoading = true;
       _error = null;
@@ -224,18 +231,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
       String userId;
       
       if (widget.isGoogleSignIn) {
+        print('Processing Google sign-in user...');
         // User is already signed in with Google, just need to complete profile
         userId = authProvider.user!.uid;
+        print('Google user ID: $userId');
       } else {
+        print('Creating new email/password account...');
         // Create new account with email/password
+        String password = widget.password ?? _passwordController.text.trim();
         await authProvider.signUpWithEmailAndPassword(
           _emailController.text.trim(),
-          _passwordController.text.trim(),
+          password,
           '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
         );
         userId = authProvider.user!.uid;
+        print('New user ID: $userId');
       }
       
+      print('Storing extended user profile...');
       // Store extended user profile
       await firebaseService.storeExtendedUserProfile(
         userId: userId,
@@ -251,10 +264,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
         physician: _physicianController.text.trim().isNotEmpty ? _physicianController.text.trim() : null,
       );
       
+      print('Profile stored successfully, marking as complete...');
       // Update profile completion status
       await authProvider.markProfileComplete();
       
+      print('Registration completed successfully!');
+      // Registration completed successfully
+      setState(() {
+        _isLoading = false;
+      });
+      
+      // The AuthWrapper will automatically navigate to MainNavigation
+      // when profileComplete becomes true
+      
     } catch (e) {
+      print('Registration error: $e');
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -378,8 +402,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
                       ),
                       SizedBox(height: 16),
                       
-                      // Password (only for email/password sign-up)
-                      if (!widget.isGoogleSignIn) ...[
+                      // Password (only for email/password sign-up, but not if coming from sign-up form)
+                      if (!widget.isGoogleSignIn && widget.password == null) ...[
                         _buildPasswordField(),
                         SizedBox(height: 16),
                       ],
@@ -602,10 +626,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
       controller: _passwordController,
       obscureText: _obscurePassword,
       validator: (value) {
-        if (!widget.isGoogleSignIn && (value == null || value.isEmpty)) {
+        if (!widget.isGoogleSignIn && widget.password == null && (value == null || value.isEmpty)) {
           return 'Required';
         }
-        if (!widget.isGoogleSignIn && value!.length < 6) {
+        if (!widget.isGoogleSignIn && widget.password == null && value!.length < 6) {
           return 'Must be at least 6 characters';
         }
         return null;

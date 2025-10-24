@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "265094165055",
+    "firebase_url": "https://prism-72ad1-default-rtdb.asia-southeast1.firebasedatabase.app",
     "project_id": "prism-72ad1",
     "storage_bucket": "prism-72ad1.firebasestorage.app"
   },
@@ -14,11 +15,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "265094165055-bcd3in8rt11lfufvgf3r91kaidi4jtp7.apps.googleusercontent.com",
+          "client_id": "265094165055-dnc1aub3qa6hd8nedot33ovuaot1004d.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.prism",
-            "certificate_hash": "e1593faaddb935620d236a779c9a182851fe6bbb"
+            "certificate_hash": "f5d3974c84fab3dbf840e9817dbb4537213e9a5d"
           }
         },
         {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:math' as math;
 import '../providers/auth_provider.dart';
 import '../services/firebase_service.dart';
 
@@ -8,7 +9,7 @@ class DashboardScreen extends StatefulWidget {
   _DashboardScreenState createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin {
+class _DashboardScreenState extends State<DashboardScreen> {
   String _userName = "Loading...";
   String _hypertensionRisk = "Low Risk";
   Color _riskColor = Color(0xFF10B981);
@@ -17,44 +18,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   List<Map<String, dynamic>> _recentReadings = [];
   bool _isLoading = true;
 
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _slideAnimation;
-  late Animation<double> _scaleAnimation;
-
-
   @override
   void initState() {
     super.initState();
-    
-    _animationController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 1000),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Interval(0.0, 0.6, curve: Curves.easeOut),
-      ),
-    );
-
-    _slideAnimation = Tween<double>(begin: 40.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Interval(0.2, 0.8, curve: Curves.easeOutCubic),
-      ),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Interval(0.4, 1.0, curve: Curves.elasticOut),
-      ),
-    );
-
     _loadUserData();
-    _animationController.forward();
   }
 
   Future<void> _loadUserData() async {
@@ -141,7 +108,6 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   @override
   void dispose() {
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -160,33 +126,11 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             SizedBox(height: isSmallScreen ? 16 : 20),
             
             // Hypertension Risk Card
-            AnimatedBuilder(
-              animation: _animationController,
-              builder: (context, child) {
-                return Transform.translate(
-                  offset: Offset(0, _slideAnimation.value),
-                  child: Opacity(
-                    opacity: _fadeAnimation.value,
-                    child: _buildRiskAssessment(isSmallScreen),
-                  ),
-                );
-              },
-            ),
+            _buildRiskAssessment(isSmallScreen),
             SizedBox(height: isSmallScreen ? 16 : 20),
             
             // Recent Readings
-            AnimatedBuilder(
-              animation: _animationController,
-              builder: (context, child) {
-                return Transform.translate(
-                  offset: Offset(0, _slideAnimation.value * 1.2),
-                  child: Opacity(
-                    opacity: _fadeAnimation.value,
-                    child: _buildRecentReadings(isSmallScreen),
-                  ),
-                );
-              },
-            ),
+            _buildRecentReadings(isSmallScreen),
             SizedBox(height: isSmallScreen ? 16 : 20),
           ],
         ),
@@ -195,419 +139,358 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   }
 
   Widget _buildHeaderSection(bool isSmallScreen) {
-    return AnimatedBuilder(
-      animation: _animationController,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, -_slideAnimation.value),
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFFEF4444),
-                    Color(0xFFDC2626),
-                    Color(0xFF991B1B),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFEF4444),
+            Color(0xFFDC2626),
+            Color(0xFF991B1B),
+          ],
+          stops: [0.0, 0.6, 1.0],
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(isSmallScreen ? 20 : 30),
+          bottomRight: Radius.circular(isSmallScreen ? 20 : 30),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFFEF4444).withOpacity(0.4),
+            blurRadius: 20,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            SizedBox(height: isSmallScreen ? 16 : 20),
+            
+            // PRISM Logo/Text
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'PRISM',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 32 : 36,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 2.0,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: Offset(2, 2),
+                    ),
                   ],
-                  stops: [0.0, 0.6, 1.0],
                 ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(isSmallScreen ? 20 : 30),
-                  bottomRight: Radius.circular(isSmallScreen ? 20 : 30),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0xFFEF4444).withOpacity(0.4),
-                    blurRadius: 20,
-                    offset: Offset(0, 10),
+              ),
+            ),
+            
+            SizedBox(height: isSmallScreen ? 16 : 20),
+            
+            // Profile Circle - Centered
+            Center(
+              child: Container(
+                width: isSmallScreen ? 90 : 100,
+                height: isSmallScreen ? 90 : 100,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white,
+                      Color(0xFFFECACA),
+                      Color(0xFFFEE2E2),
+                    ],
                   ),
-                ],
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: Offset(0, 6),
+                    ),
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: Offset(-3, -3),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    _getInitials(_userName),
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 28 : 32,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFDC2626),
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 3,
+                          offset: Offset(1, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    SizedBox(height: isSmallScreen ? 16 : 20),
-                    
-                    // Centered Profile Circle
-                    Center(
-                      child: Stack(
-                        children: [
-                          // Pulsing background glow
-                          _buildPulsingGlow(isSmallScreen),
-                          
-                          // Main profile circle
-                          Transform.scale(
-                            scale: _scaleAnimation.value,
-                            child: Container(
-                              width: isSmallScreen ? 90 : 100,
-                              height: isSmallScreen ? 90 : 100,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white,
-                                    Color(0xFFFECACA),
-                                    Color(0xFFFEE2E2),
-                                ],
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.15),
-                                  blurRadius: 20,
-                                  offset: Offset(0, 6),
-                                ),
-                                BoxShadow(
-                                  color: Colors.white.withOpacity(0.2),
-                                  blurRadius: 8,
-                                  offset: Offset(-3, -3),
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                _getInitials(_userName),
-                                style: TextStyle(
-                                  fontSize: isSmallScreen ? 28 : 32,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFFDC2626),
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 3,
-                                      offset: Offset(1, 1),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                          
-                          // Drooping effect - subtle shadow at bottom
-                          Positioned(
-                            bottom: 0,
-                            left: isSmallScreen ? 20 : 25,
-                            right: isSmallScreen ? 20 : 25,
-                            child: Container(
-                              height: 8,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.transparent,
-                                    Colors.black.withOpacity(0.12),
-                                  ],
-                                ),
-                                shape: BoxShape.rectangle,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+            ),
+            
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            
+            // Greeting Text
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                _getGreeting(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 14 : 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withOpacity(0.9),
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: Offset(1, 1),
                     ),
-                    
-                    SizedBox(height: isSmallScreen ? 12 : 16),
-                    
-                    // User Name with Fade Animation
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          _userName,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 20 : 22,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 3,
-                                offset: Offset(1, 1),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    SizedBox(height: isSmallScreen ? 6 : 8),
-                    
-                    // Welcome Message
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          'Welcome to PRISM Monitor',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 14 : 15,
-                            color: Colors.white.withOpacity(0.9),
-                            fontWeight: FontWeight.w500,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 2,
-                                offset: Offset(1, 1),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    SizedBox(height: isSmallScreen ? 20 : 24),
                   ],
                 ),
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPulsingGlow(bool isSmallScreen) {
-    return AnimatedBuilder(
-      animation: _animationController,
-      builder: (context, child) {
-        return Container(
-          width: isSmallScreen ? 110 : 120,
-          height: isSmallScreen ? 110 : 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                Colors.white.withOpacity(0.3 * _animationController.value),
-                Colors.white.withOpacity(0.1 * _animationController.value),
-                Colors.transparent,
-              ],
-              stops: [0.0, 0.5, 1.0],
+            
+            SizedBox(height: isSmallScreen ? 8 : 12),
+            
+            // User Name
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                _userName,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 18 : 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withOpacity(0.95),
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: Offset(1, 1),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        );
-      },
+            
+            SizedBox(height: isSmallScreen ? 20 : 24),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildRiskAssessment(bool isSmallScreen) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 16),
-      child: AnimatedBuilder(
-        animation: _animationController,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white,
-                    Color(0xFFFEF7F7),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(isSmallScreen ? 18 : 22),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 20,
-                    offset: Offset(0, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              Color(0xFFFEF7F7),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(isSmallScreen ? 18 : 22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.4),
+              blurRadius: 8,
+              offset: Offset(-3, -3),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFFFEE2E2),
+                          Color(0xFFFECACA),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFFFECACA).withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: Offset(1, 1),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.health_and_safety_rounded,
+                      color: Color(0xFFDC2626),
+                      size: isSmallScreen ? 20 : 22,
+                    ),
                   ),
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.4),
-                    blurRadius: 8,
-                    offset: Offset(-3, -3),
+                  SizedBox(width: isSmallScreen ? 10 : 12),
+                  Expanded(
+                    child: Text(
+                      'Hypertension Risk',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 16 : 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
                   ),
                 ],
               ),
-              child: Padding(
-                padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Color(0xFFFEE2E2),
-                                Color(0xFFFECACA),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Color(0xFFFECACA).withOpacity(0.3),
-                                blurRadius: 6,
-                                offset: Offset(1, 1),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.health_and_safety_rounded,
-                            color: Color(0xFFDC2626),
-                            size: isSmallScreen ? 20 : 22,
-                          ),
-                        ),
-                        SizedBox(width: isSmallScreen ? 10 : 12),
-                        Expanded(
-                          child: Text(
-                            'Hypertension Risk',
-                            style: TextStyle(
-                              fontSize: isSmallScreen ? 16 : 18,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1F2937),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    SizedBox(height: isSmallScreen ? 16 : 18),
-                    
-                    // Risk Level
-                    AnimatedContainer(
-                      duration: Duration(milliseconds: 800),
-                      curve: Curves.easeInOut,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isSmallScreen ? 16 : 18, 
-                        vertical: isSmallScreen ? 10 : 12
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            _riskColor.withOpacity(0.12),
-                            _riskColor.withOpacity(0.06),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 18),
-                        border: Border.all(color: _riskColor.withOpacity(0.25)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _riskColor.withOpacity(0.15),
-                            blurRadius: 8,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          _hypertensionRisk,
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 16 : 17,
-                            fontWeight: FontWeight.w800,
-                            color: _riskColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    SizedBox(height: isSmallScreen ? 16 : 18),
-                    
-                    // Animated Progress Bar
-                    Stack(
-                      children: [
-                        // Background track
-                        Container(
-                          height: isSmallScreen ? 12 : 14,
-                          decoration: BoxDecoration(
-                            color: Color(0xFFE5E7EB),
-                            borderRadius: BorderRadius.circular(isSmallScreen ? 6 : 7),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
-                                blurRadius: 3,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        // Animated progress
-                        AnimatedContainer(
-                          duration: Duration(milliseconds: 1200),
-                          curve: Curves.elasticOut,
-                          height: isSmallScreen ? 12 : 14,
-                          width: (MediaQuery.of(context).size.width - (isSmallScreen ? 56 : 72)) * _riskPercentage,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                _riskColor,
-                                _riskColor.withOpacity(0.7),
-                                _riskColor,
-                              ],
-                              stops: [0.0, 0.5, 1.0],
-                            ),
-                            borderRadius: BorderRadius.circular(isSmallScreen ? 6 : 7),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _riskColor.withOpacity(0.3),
-                                blurRadius: 6,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    SizedBox(height: isSmallScreen ? 10 : 12),
-                    
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '${(_riskPercentage * 100).toInt()}% Risk Level',
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 12 : 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF6B7280),
-                          ),
-                        ),
-                        Text(
-                          _getRiskLevelText(_riskPercentage),
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 12 : 13,
-                            fontWeight: FontWeight.w600,
-                            color: _riskColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    SizedBox(height: isSmallScreen ? 14 : 16),
-                    
-                    // Risk Description
-                    Text(
-                      _riskDescription,
-                      style: TextStyle(
-                        fontSize: isSmallScreen ? 13 : 14,
-                        color: Color(0xFF6B7280),
-                        height: 1.4,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.center,
+              
+              SizedBox(height: isSmallScreen ? 16 : 18),
+              
+              // Risk Level
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 16 : 18, 
+                  vertical: isSmallScreen ? 10 : 12
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      _riskColor.withOpacity(0.12),
+                      _riskColor.withOpacity(0.06),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 18),
+                  border: Border.all(color: _riskColor.withOpacity(0.25)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _riskColor.withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
                     ),
                   ],
                 ),
+                child: Center(
+                  child: Text(
+                    _hypertensionRisk,
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 16 : 17,
+                      fontWeight: FontWeight.w800,
+                      color: _riskColor,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          );
-        },
+              
+              SizedBox(height: isSmallScreen ? 16 : 18),
+              
+              // Progress Bar
+              Stack(
+                children: [
+                  // Background track
+                  Container(
+                    height: isSmallScreen ? 12 : 14,
+                    decoration: BoxDecoration(
+                      color: Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(isSmallScreen ? 6 : 7),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Progress
+                  Container(
+                    height: isSmallScreen ? 12 : 14,
+                    width: math.max(0.0, (MediaQuery.of(context).size.width - (isSmallScreen ? 56 : 72)) * _riskPercentage),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          _riskColor,
+                          _riskColor.withOpacity(0.7),
+                          _riskColor,
+                        ],
+                        stops: [0.0, 0.5, 1.0],
+                      ),
+                      borderRadius: BorderRadius.circular(isSmallScreen ? 6 : 7),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _riskColor.withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              
+              SizedBox(height: isSmallScreen ? 10 : 12),
+              
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${(_riskPercentage * 100).toInt()}% Risk Level',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 12 : 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                  Text(
+                    _getRiskLevelText(_riskPercentage),
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 12 : 13,
+                      fontWeight: FontWeight.w600,
+                      color: _riskColor,
+                    ),
+                  ),
+                ],
+              ),
+              
+              SizedBox(height: isSmallScreen ? 14 : 16),
+              
+              // Risk Description
+              Text(
+                _riskDescription,
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 13 : 14,
+                  color: Color(0xFF6B7280),
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -615,174 +498,157 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   Widget _buildRecentReadings(bool isSmallScreen) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 16),
-      child: AnimatedBuilder(
-        animation: _animationController,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white,
-                    Color(0xFFFEF7F7),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(isSmallScreen ? 18 : 22),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 20,
-                    offset: Offset(0, 8),
-                  ),
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.4),
-                    blurRadius: 8,
-                    offset: Offset(-3, -3),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Color(0xFFFEE2E2),
-                                Color(0xFFFECACA),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Color(0xFFFECACA).withOpacity(0.3),
-                                blurRadius: 6,
-                                offset: Offset(1, 1),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.history_rounded,
-                            color: Color(0xFFDC2626),
-                            size: isSmallScreen ? 20 : 22,
-                          ),
-                        ),
-                        SizedBox(width: isSmallScreen ? 10 : 12),
-                        Expanded(
-                          child: Text(
-                            'Recent Blood Pressure',
-                            style: TextStyle(
-                              fontSize: isSmallScreen ? 16 : 18,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1F2937),
-                            ),
-                          ),
-                        ),
-                        // View All Button
-                        GestureDetector(
-                          onTap: () {},
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isSmallScreen ? 12 : 14, 
-                              vertical: isSmallScreen ? 6 : 7
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Color(0xFFFEF2F2),
-                                  Color(0xFFFEE2E2),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
-                            ),
-                            child: Text(
-                              'View All',
-                              style: TextStyle(
-                                color: Color(0xFFDC2626),
-                                fontWeight: FontWeight.w600,
-                                fontSize: isSmallScreen ? 12 : 13,
-                              ),
-                            ),
-                          ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              Color(0xFFFEF7F7),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(isSmallScreen ? 18 : 22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.4),
+              blurRadius: 8,
+              offset: Offset(-3, -3),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFFFEE2E2),
+                          Color(0xFFFECACA),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFFFECACA).withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: Offset(1, 1),
                         ),
                       ],
                     ),
-                    
-                    SizedBox(height: isSmallScreen ? 16 : 18),
-                    
-                    // Recent Readings List
-                    if (_isLoading)
-                      Container(
-                        padding: EdgeInsets.all(20),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFDC2626)),
-                          ),
-                        ),
-                      )
-                    else if (_recentReadings.isEmpty)
-                      Container(
-                        padding: EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.favorite_border_rounded,
-                              color: Color(0xFF9CA3AF),
-                              size: 48,
-                            ),
-                            SizedBox(height: 12),
-                            Text(
-                              'No measurements yet',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Take your first measurement to see your data here',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF9CA3AF),
-                              ),
-                            ),
+                    child: Icon(
+                      Icons.history_rounded,
+                      color: Color(0xFFDC2626),
+                      size: isSmallScreen ? 20 : 22,
+                    ),
+                  ),
+                  SizedBox(width: isSmallScreen ? 10 : 12),
+                  Expanded(
+                    child: Text(
+                      'Recent Blood Pressure',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 16 : 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                  ),
+                  // View All Button
+                  GestureDetector(
+                    onTap: () {},
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 12 : 14, 
+                        vertical: isSmallScreen ? 6 : 7
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Color(0xFFFEF2F2),
+                            Color(0xFFFEE2E2),
                           ],
                         ),
-                      )
-                    else
-                      Column(
-                        children: _recentReadings.asMap().entries.map((entry) {
-                          int index = entry.key;
-                          Map<String, dynamic> reading = entry.value;
-                          
-                          return AnimatedContainer(
-                            duration: Duration(milliseconds: 300 + (index * 150)),
-                            curve: Curves.easeOut,
-                            margin: EdgeInsets.only(bottom: isSmallScreen ? 10 : 12),
-                            transform: Matrix4.translationValues(0, _slideAnimation.value * (index + 1), 0),
-                            child: Opacity(
-                              opacity: _fadeAnimation.value,
-                              child: _buildReadingItem(reading, isSmallScreen),
-                            ),
-                          );
-                        }).toList(),
+                        borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
                       ),
-                  ],
-                ),
+                      child: Text(
+                        'View All',
+                        style: TextStyle(
+                          color: Color(0xFFDC2626),
+                          fontWeight: FontWeight.w600,
+                          fontSize: isSmallScreen ? 12 : 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          );
-        },
+              
+              SizedBox(height: isSmallScreen ? 16 : 18),
+              
+              // Recent Readings List
+              if (_isLoading)
+                Container(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFDC2626)),
+                    ),
+                  ),
+                )
+              else if (_recentReadings.isEmpty)
+                Container(
+                  padding: EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.favorite_border_rounded,
+                        color: Color(0xFF9CA3AF),
+                        size: 48,
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'No measurements yet',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Take your first measurement to see your data here',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Column(
+                  children: _recentReadings.map((reading) {
+                    return Container(
+                      margin: EdgeInsets.only(bottom: isSmallScreen ? 10 : 12),
+                      child: _buildReadingItem(reading, isSmallScreen),
+                    );
+                  }).toList(),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -828,25 +694,25 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       }
     }
     
-    return AnimatedContainer(
-      duration: Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
+    return GestureDetector(
+      onTap: () {
+        // Navigate to history screen
+        Navigator.of(context).pushNamed('/history');
+      },
+      child: Container(
       padding: EdgeInsets.all(isSmallScreen ? 12 : 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFF8FAFC),
-            Color(0xFFF1F5F9),
-          ],
+          colors: _getCardColors(statusColor),
         ),
         borderRadius: BorderRadius.circular(isSmallScreen ? 14 : 16),
-        border: Border.all(color: Color(0xFFF3F4F6)),
+        border: Border.all(color: statusColor.withOpacity(0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
+            color: statusColor.withOpacity(0.1),
+            blurRadius: 8,
             offset: Offset(0, 2),
           ),
         ],
@@ -858,14 +724,14 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Color(0xFFFEE2E2),
-                  Color(0xFFFECACA),
+                  statusColor.withOpacity(0.1),
+                  statusColor.withOpacity(0.2),
                 ],
               ),
               borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
               boxShadow: [
                 BoxShadow(
-                  color: Color(0xFFFECACA).withOpacity(0.25),
+                  color: statusColor.withOpacity(0.25),
                   blurRadius: 4,
                   offset: Offset(1, 1),
                 ),
@@ -873,7 +739,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             ),
             child: Icon(
               Icons.favorite_rounded,
-              color: Color(0xFFDC2626),
+              color: statusColor,
               size: isSmallScreen ? 18 : 20,
             ),
           ),
@@ -905,8 +771,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             ),
           ),
           
-          AnimatedContainer(
-            duration: Duration(milliseconds: 250),
+          Container(
             padding: EdgeInsets.symmetric(
               horizontal: isSmallScreen ? 10 : 12, 
               vertical: isSmallScreen ? 5 : 6
@@ -953,7 +818,19 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           ),
         ],
       ),
+    ),
     );
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good Morning';
+    } else if (hour < 17) {
+      return 'Good Afternoon';
+    } else {
+      return 'Good Evening';
+    }
   }
 
   String _getInitials(String name) {
@@ -970,5 +847,31 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     if (percentage < 0.3) return 'Low';
     if (percentage < 0.6) return 'Medium';
     return 'High';
+  }
+
+  // Helper method to get card colors based on blood pressure status
+  List<Color> _getCardColors(Color statusColor) {
+    if (statusColor == Color(0xFF10B981)) {
+      // Normal - Green
+      return [
+        Color(0xFFF0FDF4),
+        Color(0xFFDCFCE7),
+        Color(0xFFBBF7D0),
+      ];
+    } else if (statusColor == Color(0xFFF59E0B)) {
+      // Elevated - Yellow
+      return [
+        Color(0xFFFFFBEB),
+        Color(0xFFFEF3C7),
+        Color(0xFFFDE68A),
+      ];
+    } else {
+      // High/Very High - Red
+      return [
+        Color(0xFFFEF2F2),
+        Color(0xFFFEE2E2),
+        Color(0xFFFECACA),
+      ];
+    }
   }
 }

@@ -264,21 +264,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             SizedBox(height: 32),
 
-                            // Name Field (for signup)
-                            if (!_isLogin)
-                              _buildHealthTextField(
-                                controller: _nameController,
-                                label: 'Full Name',
-                                icon: Icons.person_outline_rounded,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter your name';
-                                  }
-                                  return null;
-                                },
-                              ),
-
-                            if (!_isLogin) SizedBox(height: 20),
 
                             // Email Field
                             _buildHealthTextField(

@@ -45,10 +45,10 @@ flutter:
   uses-material-design: true
 
   # --- Asset Section ---
-  assets:
-    - assets/images/
-    - assets/icons/
-    # Add more folders or files if needed
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/
+  # Add more folders or files if needed
 
   # --- Fonts (optional example) ---
   # fonts:

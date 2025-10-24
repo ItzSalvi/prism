@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../services/firebase_service.dart';
 import '../widgets/insights_skeleton.dart';
 
 class InsightsScreen extends StatefulWidget {
@@ -11,6 +14,16 @@ class InsightsScreen extends StatefulWidget {
 class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   String _timeRange = 'Month'; // 'Week', 'Month', 'Year'
+  
+  // Real user data
+  List<Map<String, dynamic>> _measurements = [];
+  double _averageSystolic = 0.0;
+  double _averageDiastolic = 0.0;
+  double _averageHeartRate = 0.0;
+  int _totalReadings = 0;
+  String _riskLevel = 'Low';
+  double _riskPercentage = 30.0;
+  List<Map<String, dynamic>> _recommendations = [];
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -19,14 +32,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    // Simulate loading insights data
-    Future.delayed(Duration(milliseconds: 2500), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    });
+    _loadUserData();
 
     _animationController = AnimationController(
       vsync: this,
@@ -54,6 +60,245 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final firebaseService = FirebaseService();
+      
+      if (authProvider.user == null) return;
+      
+      // Load user profile (for future use)
+      await firebaseService.getUserProfile(authProvider.user!.uid);
+      
+      // Load measurements based on time range
+      _measurements = await firebaseService.getRecentMeasurements(
+        authProvider.user!.uid,
+        limit: _getLimitForTimeRange(),
+      );
+      
+      // Calculate insights from real data
+      _calculateInsights();
+      
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  int _getLimitForTimeRange() {
+    switch (_timeRange) {
+      case 'Week':
+        return 7;
+      case 'Month':
+        return 30;
+      case 'Year':
+        return 365;
+      default:
+        return 30;
+    }
+  }
+
+  void _calculateInsights() {
+    if (_measurements.isEmpty) {
+      _averageSystolic = 0.0;
+      _averageDiastolic = 0.0;
+      _averageHeartRate = 0.0;
+      _totalReadings = 0;
+      _riskLevel = 'Unknown';
+      _riskPercentage = 0.0;
+      _recommendations = _getDefaultRecommendations();
+      return;
+    }
+
+    // Calculate averages
+    double totalSystolic = 0.0;
+    double totalDiastolic = 0.0;
+    double totalHeartRate = 0.0;
+
+    for (var measurement in _measurements) {
+      totalSystolic += (measurement['systolic'] ?? 0).toDouble();
+      totalDiastolic += (measurement['diastolic'] ?? 0).toDouble();
+      totalHeartRate += (measurement['heartRate'] ?? 0).toDouble();
+    }
+
+    _totalReadings = _measurements.length;
+    _averageSystolic = totalSystolic / _totalReadings;
+    _averageDiastolic = totalDiastolic / _totalReadings;
+    _averageHeartRate = totalHeartRate / _totalReadings;
+
+    // Calculate risk assessment
+    _calculateRiskAssessment();
+    
+    // Generate personalized recommendations
+    _generateRecommendations();
+  }
+
+  void _calculateRiskAssessment() {
+    // Risk assessment based on blood pressure categories
+    if (_averageSystolic >= 140 || _averageDiastolic >= 90) {
+      _riskLevel = 'High';
+      _riskPercentage = 85.0;
+    } else if (_averageSystolic >= 130 || _averageDiastolic >= 80) {
+      _riskLevel = 'Medium';
+      _riskPercentage = 60.0;
+    } else if (_averageSystolic >= 120 || _averageDiastolic >= 80) {
+      _riskLevel = 'Elevated';
+      _riskPercentage = 45.0;
+    } else {
+      _riskLevel = 'Low';
+      _riskPercentage = 25.0;
+    }
+  }
+
+  void _generateRecommendations() {
+    _recommendations = [];
+    
+    // Generate recommendations based on actual data
+    if (_averageSystolic >= 140 || _averageDiastolic >= 90) {
+      _recommendations.add({
+        'title': 'Consult Your Doctor',
+        'description': 'Your blood pressure readings indicate hypertension. Please consult with your healthcare provider immediately.',
+        'icon': Icons.medical_services_rounded,
+        'color': Color(0xFFEF4444),
+        'priority': 'high'
+      });
+    }
+    
+    if (_averageSystolic >= 120) {
+      _recommendations.add({
+        'title': 'Reduce Sodium Intake',
+        'description': 'Aim for less than 2,300mg per day to help lower your blood pressure.',
+        'icon': Icons.restaurant_rounded,
+        'color': Color(0xFFEF4444),
+        'priority': 'medium'
+      });
+    }
+    
+    if (_averageHeartRate > 100) {
+      _recommendations.add({
+        'title': 'Stress Management',
+        'description': 'Your heart rate suggests elevated stress. Practice relaxation techniques.',
+        'icon': Icons.self_improvement_rounded,
+        'color': Color(0xFF8B5CF6),
+        'priority': 'medium'
+      });
+    }
+    
+    if (_totalReadings < 7) {
+      _recommendations.add({
+        'title': 'Increase Monitoring',
+        'description': 'Take more frequent readings to get better insights into your health patterns.',
+        'icon': Icons.monitor_heart_rounded,
+        'color': Color(0xFFDC2626),
+        'priority': 'medium'
+      });
+    }
+    
+    // Add general recommendations if no specific ones
+    if (_recommendations.isEmpty) {
+      _recommendations = _getDefaultRecommendations();
+    }
+  }
+
+  List<Map<String, dynamic>> _getDefaultRecommendations() {
+    return [
+      {
+        'title': 'Regular Physical Activity',
+        'description': '30 minutes of moderate exercise daily can improve cardiovascular health.',
+        'icon': Icons.directions_run_rounded,
+        'color': Color(0xFF10B981),
+        'priority': 'low'
+      },
+      {
+        'title': 'Balanced Diet',
+        'description': 'Focus on fruits, vegetables, and whole grains for optimal heart health.',
+        'icon': Icons.fastfood_rounded,
+        'color': Color(0xFFF59E0B),
+        'priority': 'low'
+      },
+      {
+        'title': 'Adequate Sleep',
+        'description': 'Aim for 7-9 hours of quality sleep each night for better health.',
+        'icon': Icons.bedtime_rounded,
+        'color': Color(0xFF8B5CF6),
+        'priority': 'low'
+      }
+    ];
+  }
+
+  Color _getRiskColor() {
+    switch (_riskLevel) {
+      case 'High':
+        return Color(0xFFEF4444);
+      case 'Medium':
+        return Color(0xFFF59E0B);
+      case 'Elevated':
+        return Color(0xFF8B5CF6);
+      case 'Low':
+        return Color(0xFF10B981);
+      default:
+        return Color(0xFF6B7280);
+    }
+  }
+
+  List<Color> _getRiskGradientColors() {
+    switch (_riskLevel) {
+      case 'High':
+        return [Color(0xFFEF4444), Color(0xFFDC2626)];
+      case 'Medium':
+        return [Color(0xFFF59E0B), Color(0xFFD97706)];
+      case 'Elevated':
+        return [Color(0xFF8B5CF6), Color(0xFF7C3AED)];
+      case 'Low':
+        return [Color(0xFF10B981), Color(0xFF059669)];
+      default:
+        return [Color(0xFF6B7280), Color(0xFF4B5563)];
+    }
+  }
+
+  String _getRiskDescription() {
+    switch (_riskLevel) {
+      case 'High':
+        return 'Immediate medical attention recommended';
+      case 'Medium':
+        return 'Monitor closely and consult healthcare provider';
+      case 'Elevated':
+        return 'Take preventive measures';
+      case 'Low':
+        return 'Continue your healthy habits';
+      default:
+        return 'Insufficient data for assessment';
+    }
+  }
+
+  String _getRiskAnalysisText() {
+    if (_measurements.isEmpty) {
+      return 'No measurement data available. Start taking regular blood pressure readings to get personalized health insights and risk assessment.';
+    }
+    
+    switch (_riskLevel) {
+      case 'High':
+        return 'Your blood pressure readings indicate hypertension. Please consult with your healthcare provider immediately for proper treatment and monitoring.';
+      case 'Medium':
+        return 'Your blood pressure is elevated. Consider lifestyle changes and consult your healthcare provider for guidance on managing your blood pressure.';
+      case 'Elevated':
+        return 'Your blood pressure is slightly elevated. Focus on lifestyle modifications like diet, exercise, and stress management to prevent further increases.';
+      case 'Low':
+        return 'Based on your recent readings, your blood pressure is within a healthy range. Continue maintaining your healthy habits and regular monitoring.';
+      default:
+        return 'Insufficient data available for a comprehensive risk assessment. Please take more measurements to get accurate insights.';
+    }
   }
 
   @override
@@ -142,7 +387,9 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                   onTap: () {
                     setState(() {
                       _timeRange = range;
+                      _isLoading = true;
                     });
+                    _loadUserData();
                   },
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -200,12 +447,14 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                 ),
               ),
               SizedBox(width: 12),
-              Text(
-                'Hypertension Risk Assessment',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1F2937),
+              Expanded(
+                child: Text(
+                  'Hypertension Risk Assessment',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1F2937),
+                  ),
                 ),
               ),
             ],
@@ -247,15 +496,15 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Low Risk Level',
+                            '$_riskLevel Risk Level',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF059669),
+                              color: _getRiskColor(),
                             ),
                           ),
                           Text(
-                            'Continue your healthy habits',
+                            _getRiskDescription(),
                             style: TextStyle(
                               color: Color(0xFF6B7280),
                               fontSize: 14,
@@ -272,9 +521,9 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                         border: Border.all(color: Color(0xFF10B981).withOpacity(0.3)),
                       ),
                       child: Text(
-                        '30%',
+                        '${_riskPercentage.toInt()}%',
                         style: TextStyle(
-                          color: Color(0xFF059669),
+                          color: _getRiskColor(),
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
                         ),
@@ -298,18 +547,15 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                           duration: Duration(milliseconds: 1000),
                           curve: Curves.easeOut,
                           height: 12,
-                          width: constraints.maxWidth * 0.3,
+                          width: constraints.maxWidth * (_riskPercentage / 100),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [
-                                Color(0xFF10B981),
-                                Color(0xFF34D399),
-                              ],
+                              colors: _getRiskGradientColors(),
                             ),
                             borderRadius: BorderRadius.circular(6),
                             boxShadow: [
                               BoxShadow(
-                                color: Color(0xFF10B981).withOpacity(0.3),
+                                color: _getRiskColor().withOpacity(0.3),
                                 blurRadius: 8,
                                 offset: Offset(0, 2),
                               ),
@@ -350,7 +596,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                 ),
                 SizedBox(height: 16),
                 Text(
-                  'Based on your recent readings and lifestyle patterns, your risk of developing hypertension is currently low. Maintain your healthy habits.',
+                  _getRiskAnalysisText(),
                   style: TextStyle(
                     fontSize: 14,
                     color: Color(0xFF6B7280),
@@ -398,12 +644,14 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                 ),
               ),
               SizedBox(width: 12),
-              Text(
-                'Blood Pressure Trends',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1F2937),
+              Expanded(
+                child: Text(
+                  'Blood Pressure Trends',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1F2937),
+                  ),
                 ),
               ),
             ],
@@ -550,11 +798,11 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           Row(
             children: [
               Expanded(
-                child: _buildMetricItem('Average Systolic', '126', 'mmHg', Color(0xFFEF4444), Icons.arrow_upward_rounded),
+                child: _buildMetricItem('Average Systolic', '${_averageSystolic.toInt()}', 'mmHg', Color(0xFFEF4444), Icons.arrow_upward_rounded),
               ),
               SizedBox(width: 12),
               Expanded(
-                child: _buildMetricItem('Average Diastolic', '81', 'mmHg', Color(0xFFF59E0B), Icons.arrow_downward_rounded),
+                child: _buildMetricItem('Average Diastolic', '${_averageDiastolic.toInt()}', 'mmHg', Color(0xFFF59E0B), Icons.arrow_downward_rounded),
               ),
             ],
           ),
@@ -562,11 +810,11 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           Row(
             children: [
               Expanded(
-                child: _buildMetricItem('Readings Taken', '24', 'times', Color(0xFFDC2626), Icons.history_rounded),
+                child: _buildMetricItem('Readings Taken', '$_totalReadings', 'times', Color(0xFFDC2626), Icons.history_rounded),
               ),
               SizedBox(width: 12),
               Expanded(
-                child: _buildMetricItem('Consistency', '85', '%', Color(0xFF10B981), Icons.trending_up_rounded), // FIXED: Changed to trending_up_rounded
+                child: _buildMetricItem('Heart Rate', '${_averageHeartRate.toInt()}', 'bpm', Color(0xFF10B981), Icons.favorite_rounded),
               ),
             ],
           ),
@@ -666,43 +914,37 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                 ),
               ),
               SizedBox(width: 12),
-              Text(
-                'Personalized Recommendations',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1F2937),
+              Expanded(
+                child: Text(
+                  'Personalized Recommendations',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1F2937),
+                  ),
                 ),
               ),
             ],
           ),
           SizedBox(height: 20),
-          _buildRecommendationItem(
-            'Reduce Sodium Intake',
-            'Aim for less than 2,300mg per day to help maintain healthy blood pressure levels.',
-            Icons.restaurant_rounded,
-            Color(0xFFEF4444),
-          ),
-          SizedBox(height: 16),
-          _buildRecommendationItem(
-            'Regular Physical Activity',
-            '30 minutes of moderate exercise daily can improve cardiovascular health.',
-            Icons.directions_run_rounded,
-            Color(0xFF10B981),
-          ),
-          SizedBox(height: 16),
-          _buildRecommendationItem(
-            'Stress Management',
-            'Practice relaxation techniques like deep breathing or meditation.',
-            Icons.self_improvement_rounded,
-            Color(0xFF8B5CF6),
-          ),
-          SizedBox(height: 16),
-          _buildRecommendationItem(
-            'Balanced Diet',
-            'Focus on fruits, vegetables, and whole grains for optimal heart health.',
-            Icons.fastfood_rounded, // FIXED: Changed to fastfood_rounded
-            Color(0xFFF59E0B),
+          ...(_recommendations.isEmpty 
+            ? [
+                _buildRecommendationItem(
+                  'No Data Available',
+                  'Start taking measurements to get personalized health insights and recommendations.',
+                  Icons.info_outline_rounded,
+                  Color(0xFF6B7280),
+                ),
+              ]
+            : _recommendations.map((rec) => Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: _buildRecommendationItem(
+                  rec['title'],
+                  rec['description'],
+                  rec['icon'],
+                  rec['color'],
+                ),
+              )).toList()
           ),
         ],
       ),

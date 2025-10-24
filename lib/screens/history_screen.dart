@@ -583,7 +583,11 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
   Widget _buildHistoryItem(Map<String, dynamic> reading) {
     Color statusColor = reading['status'] == 'Normal' ? Color(0xFF10B981) : Color(0xFFF59E0B);
     
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        _showReadingDetailsModal(reading);
+      },
+      child: Container(
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -633,42 +637,51 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
                       size: 14,
                     ),
                     SizedBox(width: 4),
-                    Text(
-                      '${reading['heartRate']} bpm',
-                      style: TextStyle(
-                        color: Color(0xFF6B7280),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Text(
+                        '${reading['heartRate']} bpm',
+                        style: TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    SizedBox(width: 12),
+                    SizedBox(width: 8),
                     Icon(
                       Icons.air_rounded,
                       color: Color(0xFF10B981),
                       size: 14,
                     ),
                     SizedBox(width: 4),
-                    Text(
-                      '${reading['spo2']?.toStringAsFixed(1) ?? '0.0'}%',
-                      style: TextStyle(
-                        color: Color(0xFF6B7280),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Text(
+                        '${reading['spo2']?.toStringAsFixed(1) ?? '0.0'}%',
+                        style: TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    SizedBox(width: 12),
+                    SizedBox(width: 8),
                     Icon(
                       Icons.access_time_rounded,
                       color: Color(0xFF6B7280),
                       size: 14,
                     ),
                     SizedBox(width: 4),
-                    Text(
-                      _formatDate(reading['date']),
-                      style: TextStyle(
-                        color: Color(0xFF6B7280),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Text(
+                        _formatDate(reading['date']),
+                        style: TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -708,6 +721,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -778,5 +792,267 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
         ),
       ),
     );
+  }
+
+  void _showReadingDetailsModal(Map<String, dynamic> reading) {
+    // Determine blood pressure status and colors
+    int systolic = reading['systolic'] as int;
+    int diastolic = reading['diastolic'] as int;
+    
+    Color statusColor;
+    List<Color> gradientColors;
+    Color borderColor;
+    Color textColor;
+    
+    if (systolic < 120 && diastolic < 80) {
+      statusColor = Color(0xFF10B981); // Green
+      gradientColors = [Color(0xFFF0FDF4), Color(0xFFDCFCE7)];
+      borderColor = Color(0xFFBBF7D0);
+      textColor = Color(0xFF059669);
+    } else if (systolic < 130 && diastolic < 80) {
+      statusColor = Color(0xFFF59E0B); // Yellow
+      gradientColors = [Color(0xFFFFFBEB), Color(0xFFFEF3C7)];
+      borderColor = Color(0xFFFDE68A);
+      textColor = Color(0xFFD97706);
+    } else {
+      statusColor = Color(0xFFEF4444); // Red
+      gradientColors = [Color(0xFFFEF2F2), Color(0xFFFEE2E2)];
+      borderColor = Color(0xFFFECACA);
+      textColor = Color(0xFFDC2626);
+    }
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white,
+                  gradientColors[1].withOpacity(0.3),
+                ],
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradientColors,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.favorite_rounded,
+                        color: statusColor,
+                        size: 24,
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Blood Pressure Reading',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1F2937),
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            _formatDate(reading['date']),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF6B7280),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: Color(0xFF6B7280),
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 24),
+                
+                // Main reading
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: gradientColors,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '${reading['systolic']}/${reading['diastolic']} mmHg',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: textColor,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        _getBloodPressureCategory(reading['systolic'], reading['diastolic']),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+                
+                // Additional readings
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDetailCard(
+                        'Heart Rate',
+                        '${reading['heartRate']} bpm',
+                        Icons.favorite_rounded,
+                        Color(0xFFEF4444),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: _buildDetailCard(
+                        'SpO2',
+                        '${reading['spo2']?.toStringAsFixed(1) ?? '0.0'}%',
+                        Icons.air_rounded,
+                        Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+                
+                // Notes section
+                if (reading['notes'] != null && reading['notes'].toString().isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Color(0xFFE5E7EB)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Notes',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF374151),
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          reading['notes'],
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1F2937),
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getBloodPressureCategory(int systolic, int diastolic) {
+    if (systolic < 120 && diastolic < 80) {
+      return 'Normal';
+    } else if (systolic < 130 && diastolic < 80) {
+      return 'Elevated';
+    } else if (systolic < 140 || diastolic < 90) {
+      return 'High Blood Pressure Stage 1';
+    } else {
+      return 'High Blood Pressure Stage 2';
+    }
   }
 }

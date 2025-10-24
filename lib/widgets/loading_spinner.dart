@@ -7,42 +7,111 @@ class LoadingSpinner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Color(0xFFFEF7F7),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Modern logo container with gradient and shadow
             Container(
-              width: 80,
-              height: 80,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
-                color: Colors.blue[800],
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFEF4444),
+                    Color(0xFFDC2626),
+                    Color(0xFF991B1B),
+                  ],
+                  stops: [0.0, 0.6, 1.0],
+                ),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0xFFEF4444).withOpacity(0.4),
+                    blurRadius: 20,
+                    offset: Offset(0, 10),
+                  ),
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: Offset(-3, -3),
+                  ),
+                ],
               ),
               child: Icon(
-                Icons.favorite,
+                Icons.favorite_rounded,
                 color: Colors.white,
-                size: 40,
+                size: 50,
               ),
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 24),
+            
+            // PRISM title with modern styling
             Text(
               'PRISM',
               style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue[800],
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFFDC2626),
+                letterSpacing: 2.0,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: Offset(2, 2),
+                  ),
+                ],
               ),
             ),
             SizedBox(height: 8),
+            
+            // Subtitle
             Text(
-              'Loading...',
-              style: TextStyle(color: Colors.grey[600]),
+              'Health Monitoring System',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF6B7280),
+                letterSpacing: 0.5,
+              ),
             ),
-            SizedBox(height: 20),
-            SpinKitFadingCircle(
-              color: Colors.blue[800]!,
-              size: 30.0,
+            SizedBox(height: 32),
+            
+            // Modern loading indicator
+            Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 15,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  SpinKitPulse(
+                    color: Color(0xFFDC2626),
+                    size: 50.0,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF6B7280),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
