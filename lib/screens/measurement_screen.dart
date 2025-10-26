@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/firebase_service.dart';
+import '../services/wifi_service.dart';
+import '../services/sms_service.dart';
 import '../providers/auth_provider.dart';
 
 class MeasurementScreen extends StatefulWidget {
@@ -11,19 +13,23 @@ class MeasurementScreen extends StatefulWidget {
 }
 
 class _MeasurementScreenState extends State<MeasurementScreen> with SingleTickerProviderStateMixin {
+  final WiFiDeviceManager _wifiService = WiFiDeviceManager();
+  final FirebaseService _firebaseService = FirebaseService();
+  final SMSService _smsService = SMSService();
+  
   bool _isScanning = false;
   bool _hasData = false;
   bool _isSaving = false;
+  bool _hasSavedMeasurement = false;
+  int _scanProgress = 0;
   
-  // Mock data - replace with actual MAX30102 data
+  // Real sensor data from ESP8266
   int _systolic = 0;
   int _diastolic = 0;
   int _heartRate = 0;
   double _spo2 = 0.0;
-  String _status = "Ready to scan";
+  String _status = "Connect to ESP8266 device first";
   
-  final FirebaseService _firebaseService = FirebaseService();
-
   late AnimationController _animationController;
   late Animation<double> _pulseAnimation;
 
@@ -42,55 +48,108 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
         curve: Curves.easeInOut,
       ),
     );
+    
+    _setupWiFiListeners();
   }
 
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  void _startScanning() {
-    setState(() {
-      _isScanning = true;
-      _status = "Scanning... Place finger on sensor";
+  void _setupWiFiListeners() {
+    _wifiService.statusStream.listen((status) {
+      setState(() {
+        _status = status;
+      });
     });
-    
-    _animationController.repeat(reverse: true);
-    
-    // Simulate data reception after 3 seconds with realistic variations
-    Future.delayed(Duration(seconds: 3), () {
-      if (mounted) {
-        // Generate realistic blood pressure data with some variation
-        final random = DateTime.now().millisecondsSinceEpoch % 100;
-        final baseSystolic = 110 + (random % 20); // 110-130 range
-        final baseDiastolic = 70 + (random % 15); // 70-85 range
-        final baseHeartRate = 65 + (random % 20); // 65-85 range
-        final baseSpO2 = 96.0 + (random % 4); // 96-100 range
+
+    _wifiService.dataStream.listen((data) {
+      setState(() {
+        _systolic = data['systolic'] ?? 0;
+        _diastolic = data['diastolic'] ?? 0;
+        _heartRate = data['heartRate'] ?? 0;
+        _spo2 = data['spo2'] ?? 0.0;
         
-        setState(() {
+        // Check if we have valid data
+        if (_systolic > 0 && _diastolic > 0) {
           _hasData = true;
-          _isScanning = false;
-          _status = "Scan complete";
-          _systolic = baseSystolic;
-          _diastolic = baseDiastolic;
-          _heartRate = baseHeartRate;
-          _spo2 = baseSpO2;
-        });
+        }
+      });
+    });
+
+    _wifiService.scanProgressStream.listen((progress) {
+      setState(() {
+        _scanProgress = progress;
+      });
+      
+      // When scan is complete (30 seconds), save the measurement
+      if (progress >= 30 && _hasData && !_isSaving && !_hasSavedMeasurement) {
+        _isScanning = false;
         _animationController.stop();
-        
-        // Automatically save the measurement to database
         _saveMeasurement();
       }
     });
   }
 
-  void _stopScanning() {
+  @override
+  void dispose() {
+    _animationController.dispose();
+    // Don't dispose WiFi service here - it's a singleton that should persist
+    super.dispose();
+  }
+
+  void _startScanning() async {
+    // First check if we're connected to a device
+    if (!_wifiService.isConnected) {
+      setState(() {
+        _status = "Please connect to ESP8266 device first";
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please go to Device Scan screen and connect to your ESP8266 device first')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isScanning = true;
+      _status = "Starting measurement... Place finger on sensor";
+      _hasData = false;
+      _hasSavedMeasurement = false;
+      _systolic = 0;
+      _diastolic = 0;
+      _heartRate = 0;
+      _spo2 = 0.0;
+    });
+    
+    _animationController.repeat(reverse: true);
+    
+    try {
+      await _wifiService.startSensorScan();
+    } catch (e) {
+      setState(() {
+        _isScanning = false;
+        _status = "Failed to start scan: $e";
+      });
+      _animationController.stop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to start scan: $e')),
+      );
+    }
+  }
+
+  void _stopScanning() async {
     setState(() {
       _isScanning = false;
-      _status = "Scan stopped";
+      _status = "Stopping scan...";
     });
     _animationController.stop();
+    
+    try {
+      await _wifiService.stopSensorScan();
+      setState(() {
+        _status = "Scan stopped";
+      });
+    } catch (e) {
+      setState(() {
+        _status = "Error stopping scan: $e";
+      });
+    }
   }
 
   void _resetScan() {
@@ -98,7 +157,8 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
       _isScanning = false;
       _hasData = false;
       _isSaving = false;
-      _status = "Ready to scan";
+      _hasSavedMeasurement = false;
+      _status = _wifiService.isConnected ? "Ready to scan" : "Connect to ESP8266 device first";
       _systolic = 0;
       _diastolic = 0;
       _heartRate = 0;
@@ -127,7 +187,7 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
       }
 
       // Determine if blood pressure is abnormal
-      bool isAbnormal = _systolic > 120 || _diastolic > 80;
+      bool isAbnormal = _wifiService.isAbnormalBloodPressure(_systolic, _diastolic);
 
       // Save to Firebase
       await _firebaseService.storeBloodPressureMeasurement(
@@ -140,8 +200,14 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
         isAbnormal: isAbnormal,
       );
 
+      // Check if abnormal and send SMS
+      if (isAbnormal) {
+        await _sendAbnormalAlert();
+      }
+
       setState(() {
         _isSaving = false;
+        _hasSavedMeasurement = true;
         _status = "Measurement saved successfully!";
       });
 
@@ -164,6 +230,45 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  Future<void> _sendAbnormalAlert() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.user?.uid;
+      
+      if (userId == null) return;
+
+      // Get user profile
+      Map<String, dynamic>? userProfile = await _firebaseService.getUserProfile(userId);
+      if (userProfile == null) return;
+
+      String emergencyPhone = userProfile['emergencyPhone'] ?? '';
+      String userName = userProfile['name'] ?? 'User';
+
+      if (emergencyPhone.isNotEmpty) {
+        bool smsSent = await _smsService.sendBloodPressureAlert(
+          emergencyPhone: emergencyPhone,
+          userName: userName,
+          systolic: _systolic,
+          diastolic: _diastolic,
+          heartRate: _heartRate,
+          timestamp: DateTime.now(),
+        );
+
+        if (smsSent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('SMS alert sent to emergency contact!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to send SMS alert')),
+          );
+        }
+      }
+    } catch (e) {
+      print('Failed to send abnormal alert: $e');
     }
   }
 
@@ -196,6 +301,10 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
             
             // Scanner Controls
             _buildScannerControls(),
+            SizedBox(height: 16),
+            
+            // Connection Status Button
+            if (!_wifiService.isConnected) _buildConnectionButton(),
             SizedBox(height: 24),
             
             // Instructions
@@ -238,13 +347,37 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
               ),
               SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'MAX30102 Sensor',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1F2937),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'MAX30102 Sensor',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          _wifiService.isConnected ? Icons.wifi : Icons.wifi_off,
+                          color: _wifiService.isConnected ? Colors.green : Colors.red,
+                          size: 16,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          _wifiService.isConnected ? 'ESP8266 Connected' : 'ESP8266 Not Connected',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _wifiService.isConnected ? Colors.green : Colors.red,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -282,6 +415,33 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
                   ),
                   textAlign: TextAlign.center,
                 ),
+                if (_isScanning) ...[
+                  SizedBox(height: 12),
+                  if (_scanProgress > 0) ...[
+                    LinearProgressIndicator(
+                      value: _scanProgress / 30.0,
+                      backgroundColor: Colors.grey[300],
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFDC2626)),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Progress: $_scanProgress/30 seconds',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ] else ...[
+                    Text(
+                      'Waiting for finger detection...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -464,24 +624,31 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
               width: double.infinity,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Color(0xFFEF4444),
-                    Color(0xFFDC2626),
-                  ],
+                  colors: _wifiService.isConnected
+                      ? [Color(0xFFEF4444), Color(0xFFDC2626)]
+                      : [Color(0xFF9CA3AF), Color(0xFF6B7280)],
                 ),
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0xFFEF4444).withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: Offset(0, 8),
-                  ),
-                ],
+                boxShadow: _wifiService.isConnected
+                    ? [
+                        BoxShadow(
+                          color: Color(0xFFEF4444).withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: Offset(0, 8),
+                        ),
+                      ]
+                    : [],
               ),
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: _isScanning ? _stopScanning : _startScanning,
+                  onTap: _wifiService.isConnected
+                      ? (_isScanning ? _stopScanning : _startScanning)
+                      : () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Please connect to ESP8266 device first')),
+                          );
+                        },
                   borderRadius: BorderRadius.circular(16),
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 18),
@@ -495,7 +662,9 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
                         ),
                         SizedBox(width: 12),
                         Text(
-                          _isScanning ? 'Stop Scanning' : 'Start Scanning',
+                          _wifiService.isConnected
+                              ? (_isScanning ? 'Stop Scanning' : 'Start Scanning')
+                              : 'Connect ESP8266 First',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -568,6 +737,49 @@ class _MeasurementScreenState extends State<MeasurementScreen> with SingleTicker
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildConnectionButton() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Color(0xFF3B82F6).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Color(0xFF3B82F6).withOpacity(0.3)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            // Navigate to device screen
+            Navigator.pushNamed(context, '/device');
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.wifi_find_rounded,
+                  color: Color(0xFF3B82F6),
+                  size: 24,
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'Go to Device Tab to Connect',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF3B82F6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

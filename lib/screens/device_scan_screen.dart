@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/bluetooth_service.dart';
-import '../services/firebase_service.dart';
-import '../services/sms_service.dart';
-import '../providers/auth_provider.dart';
-import '../widgets/skeleton_loader.dart';
+import '../services/wifi_service.dart';
 
 class DeviceScanScreen extends StatefulWidget {
   const DeviceScanScreen({super.key});
@@ -14,50 +9,32 @@ class DeviceScanScreen extends StatefulWidget {
 }
 
 class _DeviceScanScreenState extends State<DeviceScanScreen> {
-  final BluetoothManager _bluetoothService = BluetoothManager();
-  final FirebaseService _firebaseService = FirebaseService();
-  final SMSService _smsService = SMSService();
+  final WiFiDeviceManager _wifiService = WiFiDeviceManager();
   
   bool _isScanning = false;
   bool _isConnected = false;
-  bool _isDeviceScanning = false;
-  int _scanProgress = 0;
   String _status = "Ready to connect";
   
-  // Sensor data
-  int _systolic = 0;
-  int _diastolic = 0;
-  int _heartRate = 0;
-  double _spo2 = 0.0;
-  
   // Available devices
-  List<dynamic> _availableDevices = [];
+  List<Map<String, dynamic>> _availableDevices = [];
   
   @override
   void initState() {
     super.initState();
-    _setupBluetoothListeners();
+    _setupWiFiListeners();
   }
 
-  void _setupBluetoothListeners() {
-    _bluetoothService.statusStream.listen((status) {
+  void _setupWiFiListeners() {
+    _wifiService.statusStream.listen((status) {
       setState(() {
         _status = status;
+        _isConnected = _wifiService.isConnected;
       });
     });
 
-    _bluetoothService.dataStream.listen((data) {
+    _wifiService.devicesStream.listen((devices) {
       setState(() {
-        _systolic = data['systolic'] ?? 0;
-        _diastolic = data['diastolic'] ?? 0;
-        _heartRate = data['heartRate'] ?? 0;
-        _spo2 = data['spo2'] ?? 0.0;
-      });
-    });
-
-    _bluetoothService.scanProgressStream.listen((progress) {
-      setState(() {
-        _scanProgress = progress;
+        _availableDevices = devices;
       });
     });
   }
@@ -66,7 +43,7 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('ESP8266 Device Scanner'),
+        title: Text('Device Connection'),
         backgroundColor: Colors.blue[800],
         foregroundColor: Colors.white,
       ),
@@ -79,11 +56,9 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
             SizedBox(height: 20),
             _buildDeviceList(),
             SizedBox(height: 20),
-            _buildScanningSection(),
-            SizedBox(height: 20),
-            _buildMeasurementDisplay(),
-            SizedBox(height: 20),
             _buildActionButtons(),
+            SizedBox(height: 20),
+            _buildInstructionsCard(),
           ],
         ),
       ),
@@ -101,7 +76,7 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
             Row(
               children: [
                 Icon(
-                  _isConnected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
+                  _isConnected ? Icons.wifi : Icons.wifi_off,
                   color: _isConnected ? Colors.green : Colors.red,
                 ),
                 SizedBox(width: 8),
@@ -119,7 +94,7 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
                 children: [
                   Icon(Icons.device_hub, size: 16, color: Colors.blue),
                   SizedBox(width: 4),
-                  Text('ESP8266 + MAX30102 Connected'),
+                  Text('ESP8266 + MAX30102 Connected via WiFi'),
                 ],
               ),
             ],
@@ -153,7 +128,7 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
             ),
             SizedBox(height: 16),
             if (_availableDevices.isEmpty)
-              Text('No devices found. Tap "Scan" to search for ESP8266 devices.')
+              Text('No devices found. Tap "Scan" to search for ESP8266 devices on your WiFi network.')
             else
               ..._availableDevices.map((device) => _buildDeviceItem(device)),
           ],
@@ -162,11 +137,17 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
     );
   }
 
-  Widget _buildDeviceItem(dynamic device) {
+  Widget _buildDeviceItem(Map<String, dynamic> device) {
     return ListTile(
       leading: Icon(Icons.device_hub, color: Colors.blue),
-      title: Text(device.platformName.isNotEmpty ? device.platformName : 'Unknown Device'),
-      subtitle: Text(device.remoteId.toString()),
+      title: Text(device['name'] ?? 'ESP8266 Device'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('IP: ${device['ip']}:${device['port']}'),
+          Text('Status: ${device['status']}'),
+        ],
+      ),
       trailing: ElevatedButton(
         onPressed: _isConnected ? null : () => _connectToDevice(device),
         child: Text(_isConnected ? 'Connected' : 'Connect'),
@@ -174,9 +155,7 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
     );
   }
 
-  Widget _buildScanningSection() {
-    if (!_isConnected) return SizedBox.shrink();
-
+  Widget _buildInstructionsCard() {
     return Card(
       elevation: 4,
       child: Padding(
@@ -184,157 +163,60 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Sensor Scanning',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 16),
-            if (_isDeviceScanning) ...[
-              _buildScanProgress(),
-              SizedBox(height: 16),
-            ],
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                ElevatedButton.icon(
-                  onPressed: _isDeviceScanning ? null : _startScan,
-                  icon: Icon(Icons.play_arrow),
-                  label: Text('Start Scan'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _isDeviceScanning ? _stopScan : null,
-                  icon: Icon(Icons.stop),
-                  label: Text('Stop Scan'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                  ),
+                Icon(Icons.info, color: Colors.blue),
+                SizedBox(width: 8),
+                Text(
+                  'Connection Instructions',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
+            SizedBox(height: 16),
+            _buildInstructionStep(1, 'Make sure your ESP8266 device is powered on and connected to WiFi'),
+            SizedBox(height: 8),
+            _buildInstructionStep(2, 'Tap "Scan" to search for available ESP8266 devices'),
+            SizedBox(height: 8),
+            _buildInstructionStep(3, 'Select your device from the list and tap "Connect"'),
+            SizedBox(height: 8),
+            _buildInstructionStep(4, 'Once connected, go to "Measurement" tab to start scanning'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildScanProgress() {
-    return Column(
-      children: [
-        LinearProgressIndicator(
-          value: _scanProgress / 60.0,
-          backgroundColor: Colors.grey[300],
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-        ),
-        SizedBox(height: 8),
-        Text(
-          'Scanning: $_scanProgress/60 seconds',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        Text(
-          'Place your finger on the MAX30102 sensor',
-          style: TextStyle(color: Colors.grey[600]),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMeasurementDisplay() {
-    if (!_isDeviceScanning && _systolic == 0) return SizedBox.shrink();
-
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Real-time Measurements',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildMeasurementItem('Systolic', '$_systolic', 'mmHg', Colors.red),
-                _buildMeasurementItem('Diastolic', '$_diastolic', 'mmHg', Colors.orange),
-                _buildMeasurementItem('Heart Rate', '$_heartRate', 'bpm', Colors.blue),
-                _buildMeasurementItem('SpO2', _spo2.toStringAsFixed(1), '%', Colors.green),
-              ],
-            ),
-            if (_systolic > 0 && _diastolic > 0) ...[
-              SizedBox(height: 16),
-              _buildBloodPressureStatus(),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMeasurementItem(String label, String value, String unit, Color color) {
-    return Column(
+  Widget _buildInstructionStep(int step, String instruction) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: EdgeInsets.all(12),
+          width: 24,
+          height: 24,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: Colors.blue,
             shape: BoxShape.circle,
           ),
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ),
-        SizedBox(height: 8),
-        Text(label, style: TextStyle(fontSize: 12)),
-        Text(unit, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-      ],
-    );
-  }
-
-  Widget _buildBloodPressureStatus() {
-    bool isAbnormal = _bluetoothService.isAbnormalBloodPressure(_systolic, _diastolic);
-    
-    return Container(
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isAbnormal ? Colors.red[50] : Colors.green[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isAbnormal ? Colors.red : Colors.green,
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isAbnormal ? Icons.warning : Icons.check_circle,
-            color: isAbnormal ? Colors.red : Colors.green,
-          ),
-          SizedBox(width: 8),
-          Expanded(
+          child: Center(
             child: Text(
-              isAbnormal 
-                ? '⚠️ Abnormal blood pressure detected!'
-                : '✅ Blood pressure is normal',
+              '$step',
               style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: isAbnormal ? Colors.red[800] : Colors.green[800],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            instruction,
+            style: TextStyle(fontSize: 14),
+          ),
+        ),
+      ],
     );
   }
 
@@ -344,7 +226,7 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
         Expanded(
           child: ElevatedButton.icon(
             onPressed: _isConnected ? _disconnect : null,
-            icon: Icon(Icons.bluetooth_disabled),
+            icon: Icon(Icons.wifi_off),
             label: Text('Disconnect'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -355,11 +237,11 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
         SizedBox(width: 16),
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: _systolic > 0 ? _saveMeasurement : null,
-            icon: Icon(Icons.save),
-            label: Text('Save Reading'),
+            onPressed: _isConnected ? _goToMeasurement : null,
+            icon: Icon(Icons.monitor_heart),
+            label: Text('Start Measurement'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: Colors.green,
               foregroundColor: Colors.white,
             ),
           ),
@@ -376,7 +258,7 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
     });
 
     try {
-      List<dynamic> devices = await _bluetoothService.scanForDevices();
+      List<Map<String, dynamic>> devices = await _wifiService.scanForDevices();
       setState(() {
         _availableDevices = devices;
         _isScanning = false;
@@ -389,131 +271,32 @@ class _DeviceScanScreenState extends State<DeviceScanScreen> {
     }
   }
 
-  Future<void> _connectToDevice(dynamic device) async {
-    bool connected = await _bluetoothService.connectToDevice(device);
+  Future<void> _connectToDevice(Map<String, dynamic> device) async {
+    String ip = device['ip'];
+    int port = device['port'] ?? 8080;
+    bool connected = await _wifiService.connectToDevice(ip, port: port);
     setState(() {
       _isConnected = connected;
     });
   }
 
-  Future<void> _startScan() async {
-    setState(() {
-      _isDeviceScanning = true;
-      _scanProgress = 0;
-    });
-
-    try {
-      await _bluetoothService.startSensorScan();
-    } catch (e) {
-      setState(() {
-        _isDeviceScanning = false;
-        _status = "Failed to start scan: $e";
-      });
-    }
-  }
-
-  Future<void> _stopScan() async {
-    await _bluetoothService.stopSensorScan();
-    setState(() {
-      _isDeviceScanning = false;
-    });
-  }
 
   Future<void> _disconnect() async {
-    await _bluetoothService.disconnect();
+    await _wifiService.disconnect();
     setState(() {
       _isConnected = false;
-      _isDeviceScanning = false;
-      _systolic = 0;
-      _diastolic = 0;
-      _heartRate = 0;
-      _spo2 = 0.0;
     });
   }
 
-  Future<void> _saveMeasurement() async {
-    if (_systolic == 0 || _diastolic == 0) return;
-
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userId = authProvider.user?.uid;
-      
-      if (userId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('User not authenticated')),
-        );
-        return;
-      }
-
-      // Save to Firebase
-      String measurementId = await _firebaseService.storeBloodPressureMeasurement(
-        userId: userId,
-        systolic: _systolic,
-        diastolic: _diastolic,
-        heartRate: _heartRate,
-        spo2: _spo2,
-        timestamp: DateTime.now(),
-        isAbnormal: _bluetoothService.isAbnormalBloodPressure(_systolic, _diastolic),
-      );
-
-      // Check if abnormal and send SMS
-      if (_bluetoothService.isAbnormalBloodPressure(_systolic, _diastolic)) {
-        await _sendAbnormalAlert();
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Measurement saved successfully!')),
-      );
-
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save measurement: $e')),
-      );
-    }
+  void _goToMeasurement() {
+    // Navigate to measurement screen
+    Navigator.pushNamed(context, '/measurement');
   }
 
-  Future<void> _sendAbnormalAlert() async {
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userId = authProvider.user?.uid;
-      
-      if (userId == null) return;
-
-      // Get user profile
-      Map<String, dynamic>? userProfile = await _firebaseService.getUserProfile(userId);
-      if (userProfile == null) return;
-
-      String emergencyPhone = userProfile['emergencyPhone'] ?? '';
-      String userName = userProfile['name'] ?? 'User';
-
-      if (emergencyPhone.isNotEmpty) {
-        bool smsSent = await _smsService.sendBloodPressureAlert(
-          emergencyPhone: emergencyPhone,
-          userName: userName,
-          systolic: _systolic,
-          diastolic: _diastolic,
-          heartRate: _heartRate,
-          timestamp: DateTime.now(),
-        );
-
-        if (smsSent) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('SMS alert sent to emergency contact!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to send SMS alert')),
-          );
-        }
-      }
-    } catch (e) {
-      print('Failed to send abnormal alert: $e');
-    }
-  }
 
   @override
   void dispose() {
-    _bluetoothService.dispose();
+    // Don't dispose WiFi service here - it's a singleton that should persist
     super.dispose();
   }
 }

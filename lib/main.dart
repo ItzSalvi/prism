@@ -6,6 +6,7 @@ import 'screens/login_screen.dart';
 import 'screens/registration_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/measurement_screen.dart';
+import 'screens/device_scan_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/insights_screen.dart';
 import 'screens/profile_screen.dart';
@@ -93,6 +94,8 @@ class PRISMApp extends StatelessWidget {
         ),
         home: AuthWrapper(),
         routes: {
+          '/device': (context) => DeviceScanScreen(),
+          '/measurement': (context) => MeasurementScreen(),
           '/history': (context) => HistoryScreen(),
         },
         debugShowCheckedModeBanner: false,
@@ -148,6 +151,7 @@ class _MainNavigationState extends State<MainNavigation> {
   final List<Widget> _screens = [
     DashboardScreen(),
     MeasurementScreen(),
+    DeviceScanScreen(),
     HistoryScreen(),
     InsightsScreen(),
     ProfileScreen(),
@@ -176,9 +180,10 @@ class _MainNavigationState extends State<MainNavigation> {
               children: [
                 _buildNavItem(Icons.dashboard_outlined, Icons.dashboard, 'Dashboard', 0),
                 _buildNavItem(Icons.favorite_outline, Icons.favorite, 'Measure', 1),
-                _buildNavItem(Icons.history_outlined, Icons.history, 'History', 2),
-                _buildNavItem(Icons.insights_outlined, Icons.insights, 'Insights', 3),
-                _buildNavItem(Icons.person_outline, Icons.person, 'Profile', 4),
+                _buildNavItem(Icons.wifi_find_outlined, Icons.wifi_find, 'Device', 2),
+                _buildNavItem(Icons.history_outlined, Icons.history, 'History', 3),
+                _buildNavItem(Icons.insights_outlined, Icons.insights, 'Insights', 4),
+                _buildNavItem(Icons.person_outline, Icons.person, 'Profile', 5),
               ],
             ),
           ),
